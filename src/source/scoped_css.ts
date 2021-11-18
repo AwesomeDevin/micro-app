@@ -176,7 +176,7 @@ export default function scopedCSS (styleElement: HTMLStyleElement, appName: stri
       templateStyle.sheet!.disabled = true
     }
 
-    if (styleElement.textContent?.match('@import') && microAppHead) {
+    if (styleElement.textContent?.match('@import')) {
       extractImportCss(styleElement, app, microAppHead)
     }
 

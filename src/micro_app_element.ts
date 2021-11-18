@@ -13,6 +13,7 @@ import {
 } from './libs/additional'
 import microApp from './micro_app'
 import dispatchLifecyclesEvent from './interact/lifecycles_event'
+import { watchHashChange, patchHistoryMethods } from './source'
 
 // record all micro-app elements
 export const elementInstanceMap = new Map<Element, boolean>()
@@ -25,7 +26,7 @@ export function defineElement (tagName: string): void {
   class MicroAppElement extends HTMLElement implements MicroAppElementType {
     // observe ssr attribute - by awesomedevin
     static get observedAttributes (): string[] {
-      return ['name', 'url', 'ssr']
+      return ['name', 'url', 'ssr', 'suffix']
     }
 
     constructor () {
@@ -43,6 +44,7 @@ export function defineElement (tagName: string): void {
     appUrl = ''
     version = version
     isSsr: boolean | null = null
+    suffix = ''
 
     // 👇 Configuration
     // name: app name
@@ -61,11 +63,17 @@ export function defineElement (tagName: string): void {
         this.performWhenFirstCreated()
       }
 
-      defer(() => dispatchLifecyclesEvent(
-        this,
-        this.appName,
-        lifeCycles.CREATED,
-      ))
+      defer(() => {
+        dispatchLifecyclesEvent(
+          this,
+          this.appName,
+          lifeCycles.CREATED,
+        )
+
+        // by awesomedevin
+        patchHistoryMethods(!!this.isSsr, this.appName)
+        watchHashChange(!!this.isSsr, this.appName)
+      })
 
       this.initialMount()
     }
@@ -80,10 +88,11 @@ export function defineElement (tagName: string): void {
     }
 
     attributeChangedCallback (attr: ObservedAttrName, _oldVal: string, newVal: string): void {
-      const attrMap: {[key: string] : 'appName' | 'appUrl' | 'isSsr' } = {
+      const attrMap: {[key: string] : 'appName' | 'appUrl' | 'isSsr' | 'suffix' } = {
         [ObservedAttrName.NAME]: 'appName',
         [ObservedAttrName.URL]: 'appUrl',
         [ObservedAttrName.SSR]: 'isSsr',
+        [ObservedAttrName.SUFFIX]: 'suffix',
       }
       if (
         this.legalAttribute(attr, newVal) &&
@@ -106,6 +115,9 @@ export function defineElement (tagName: string): void {
         } else if (attr === ObservedAttrName.SSR && this.isSsr === null) {
           // Gets the tag attribute value - by awesomedevin
           this.isSsr = !!(newVal)
+        } else if (attr === ObservedAttrName.SUFFIX && this.suffix === '') {
+          // Gets the tag attribute value - by awesomedevin
+          this.suffix = newVal
         } else if (!this.isWating) {
           this.isWating = true
           defer(this.handleAttributeUpdate)
@@ -142,8 +154,9 @@ export function defineElement (tagName: string): void {
 
       const app = appInstanceMap.get(this.appName)
       if (app) {
+        // SSR applications need to CreateApp
         if (
-          app.url === this.appUrl && (
+          app.url === this.appUrl && !app.ssr && (
             app.isPrefetch ||
             app.getAppStatus() === appStatus.UNMOUNT
           )
@@ -173,6 +186,8 @@ export function defineElement (tagName: string): void {
       const attrName = this.getAttribute('name')
       const attrUrl = formatURL(this.getAttribute('url'), this.appName)
       this.isSsr = !!(this.getAttribute('ssr'))
+      this.suffix = this.getAttribute('suffix') || ''
+
       if (this.legalAttribute('name', attrName) && this.legalAttribute('url', attrUrl)) {
         const existApp = appInstanceMap.get(attrName!)
         if (attrName !== this.appName && existApp) {
@@ -247,7 +262,8 @@ export function defineElement (tagName: string): void {
         useSandbox: !this.getDisposeResult('disableSandbox'),
         macro: this.getDisposeResult('macro'),
         baseroute: this.getBaseRouteCompatible(),
-        ssr: !!this.isSsr
+        ssr: !!this.isSsr,
+        suffix: this.suffix
       })
 
       appInstanceMap.set(this.appName!, instance)

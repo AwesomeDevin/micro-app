@@ -334,3 +334,14 @@ export function isUniqueElement (key: string): boolean {
     /^html$/i.test(key)
   )
 }
+
+// debounce function
+export function debounce (fn: Function, time: number) {
+  let timer: NodeJS.Timeout
+  return function () {
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, Array.prototype.slice.apply(arguments))
+    }, time)
+  }
+}

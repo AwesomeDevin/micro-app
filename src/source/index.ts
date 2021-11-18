@@ -1,10 +1,10 @@
 import type { AppInterface } from '@micro-app/types'
 import { fetchSource } from './fetch'
-import { logError, CompletionPath, pureCreateElement } from '../libs/utils'
+import { logError, CompletionPath, pureCreateElement, formatURL, debounce } from '../libs/utils'
 import { extractLinkFromHtml, fetchLinksFromHtml } from './links'
 import { extractScriptElement, fetchScriptsFromHtml } from './scripts'
 import scopedCSS from './scoped_css'
-import { formatURL } from '../libs/utils'
+import { appInstanceMap } from '../create_app'
 
 /**
  * transform html string to dom
@@ -96,13 +96,12 @@ function extractSourceDom (htmlStr: string, app: AppInterface) {
  * @param app app
  */
 export default function extractHtml (app: AppInterface): void {
-
   // Support to fetch SSR multi-page projects - by awesomedevin
-  const ssrUrl = (`${formatURL(app.url, app.name).replace(/\/$/,'')}${globalThis.location.pathname}`).replace(/(\/| *)$/,'.html')
+  const ssrUrl = (`${formatURL(app.url, app.name).replace(/\/$/, '')}${globalThis.location.pathname}`).replace(/(\/| *)$/, app.suffix)
 
   // Compatibility with old logic
-  const url = app.ssr ? ssrUrl :  app.url
-  
+  const url = app.ssr ? ssrUrl : app.url
+
   fetchSource(url, app.name, { cache: 'no-cache' }).then((htmlStr: string) => {
     if (!htmlStr) {
       const msg = 'html is empty, please check in detail'
@@ -125,5 +124,60 @@ export default function extractHtml (app: AppInterface): void {
   }).catch((e) => {
     logError(`Failed to fetch data from ${app.url}, micro-app stop rendering`, app.name, e)
     app.onLoadError(e)
+  })
+}
+
+/**
+ * Define a property.
+ */
+export function def (obj: Object, key: string, val: any, enumerable?: boolean): void {
+  Object.defineProperty(obj, key, {
+    value: val,
+    enumerable: !!enumerable,
+    writable: true,
+    configurable: true
+  })
+}
+
+// observe hash change - by awesomedevin
+export function watchHashChange (isSSr: boolean, appName: string): void {
+  if (!isSSr) return
+
+  window.onhashchange = debounce(function () {
+    // console.log('路由被修改了')
+    const app = appInstanceMap.get(appName)
+    if (app) extractHtml(app)
+  }, 10)
+}
+
+/**
+ * Intercept mutating methods - by awesomedevin
+ */
+export function patchHistoryMethods (isSSr: boolean, appName: string): void {
+  if (!isSSr) return
+
+  const methodsToPatch: string[] = [
+    'pushState',
+    'replaceState',
+  ]
+  const historyObj = window.history
+
+  let timer: NodeJS.Timeout
+
+  methodsToPatch.forEach(function (method) {
+  // cache original method
+    const original = historyObj[method as keyof History]
+    def(historyObj, method,
+      function mutator () {
+        const app = appInstanceMap.get(appName)
+        const result = original.apply(this, Array.prototype.slice.apply(arguments))
+
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => {
+          if (app) extractHtml(app)
+        }, 50)
+        return result
+      }
+    )
   })
 }

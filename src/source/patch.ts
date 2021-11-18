@@ -451,7 +451,7 @@ export function rejectMicroAppStyle (): void {
 }
 
 // Extract @ import - by awesomedevin
-export function extractImportCss (styleElement: HTMLStyleElement, app: AppInterface, microAppHead: Element): void {
+export function extractImportCss (styleElement: HTMLStyleElement, app: AppInterface, microAppHead?: Element): void {
   const styleTextContent = styleElement.textContent
   const container = microAppHead || app?.container?.querySelector('micro-app-head')
   const matchs = styleTextContent && styleTextContent.match(/"(\w+|.+)";/g)

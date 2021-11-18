@@ -37,6 +37,7 @@ export interface CreateAppParam {
   baseroute?: string
   container?: HTMLElement | ShadowRoot
   ssr?: boolean
+  suffix?: string
 }
 
 export default class CreateApp implements AppInterface {
@@ -57,11 +58,12 @@ export default class CreateApp implements AppInterface {
   baseroute = ''
   source: sourceType
   sandBox: SandBoxInterface | null = null
+  suffix = ''
 
   // by awesomedevin
   ssr: boolean
 
-  constructor ({ name, url, container, inline, scopecss, useSandbox, macro, baseroute, ssr }: CreateAppParam) {
+  constructor ({ name, url, container, inline, scopecss, useSandbox, macro, baseroute, ssr, suffix }: CreateAppParam) {
     this.container = container ?? null
     this.inline = inline ?? false
     this.baseroute = baseroute ?? ''
@@ -77,6 +79,7 @@ export default class CreateApp implements AppInterface {
     }
     // by awesomedevin
     this.ssr = !!ssr
+    this.suffix = suffix || ''
 
     this.loadSourceCode()
     if (this.useSandbox) {
