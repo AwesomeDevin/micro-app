@@ -167,7 +167,7 @@ export function commonElementHander (
   newChild: Node,
   passiveChild: Node | null,
   rawMethod: Func,
-) {
+): any {
   if (newChild?.__MICRO_APP_NAME__) {
     const app = appInstanceMap.get(newChild.__MICRO_APP_NAME__)
     if (app?.container) {
@@ -233,8 +233,8 @@ export function patchElementPrototypeMethods (): void {
       globalEnv.rawSetAttribute.call(this, key, CompletionPath(value, app!.url))
 
       // Supports the srcset attribute of the IMG tag - by awesomedevin
-      if(this instanceof HTMLImageElement){
-        globalEnv.rawSetAttribute.call(this, 'srcset', CompletionPath(value, app!.url));
+      if (this instanceof HTMLImageElement) {
+        globalEnv.rawSetAttribute.call(this, 'srcset', CompletionPath(value, app!.url))
       }
     } else {
       globalEnv.rawSetAttribute.call(this, key, value)
@@ -448,4 +448,21 @@ export function rejectMicroAppStyle (): void {
     style.textContent = `\n${microApp.tagName}, micro-app-body { display: block; } \nmicro-app-head { display: none; }`
     globalEnv.rawDocument.head.appendChild(style)
   }
+}
+
+// Extract @ import - by awesomedevin
+export function extractImportCss (styleElement: HTMLStyleElement, app: AppInterface, microAppHead: Element): void {
+  const styleTextContent = styleElement.textContent
+  const container = microAppHead || app?.container?.querySelector('micro-app-head')
+  const matchs = styleTextContent && styleTextContent.match(/"(\w+|.+)";/g)
+  const cssLink = matchs ? matchs[0].replace(/"|;/g, '') : ''
+  const url = CompletionPath(cssLink || '', app.url)
+
+  if (!cssLink || !container) return
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.type = 'text/css'
+  link.href = url
+  const styleDom = handleNewNode(container, link, app)
+  commonElementHander(container, styleDom, null, globalEnv.rawAppendChild)
 }
