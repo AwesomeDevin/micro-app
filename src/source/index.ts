@@ -1,6 +1,6 @@
 import type { AppInterface } from '@micro-app/types'
 import { fetchSource } from './fetch'
-import { logError, CompletionPath, pureCreateElement, formatURL, debounce } from '../libs/utils'
+import { logError, CompletionPath, pureCreateElement, debounce } from '../libs/utils'
 import { extractLinkFromHtml, fetchLinksFromHtml } from './links'
 import { extractScriptElement, fetchScriptsFromHtml } from './scripts'
 import scopedCSS from './scoped_css'
@@ -97,12 +97,10 @@ function extractSourceDom (htmlStr: string, app: AppInterface) {
  */
 export default function extractHtml (app: AppInterface): void {
   // Support to fetch SSR multi-page projects - by awesomedevin
-  const ssrUrl = (`${formatURL(app.url, app.name).replace(/\/$/, '')}${globalThis.location.pathname}`).replace(/(\/| *)$/, app.suffix)
 
   // Compatibility with old logic
-  const url = app.ssr ? ssrUrl : app.url
 
-  fetchSource(url, app.name, { cache: 'no-cache' }).then((htmlStr: string) => {
+  fetchSource(app.url, app.name, { cache: 'no-cache' }).then((htmlStr: string) => {
     if (!htmlStr) {
       const msg = 'html is empty, please check in detail'
       app.onerror(new Error(msg))
@@ -142,11 +140,18 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean): 
 // observe hash change - by awesomedevin
 export function watchHashChange (isSSr: boolean, appName: string): void {
   if (!isSSr) return
+  const self = this
 
   window.onhashchange = debounce(function () {
     // console.log('路由被修改了')
     const app = appInstanceMap.get(appName)
-    if (app) extractHtml(app)
+    if (app) {
+      if (!app.url !== self.getRequestUrl()) {
+        extractHtml(app)
+      } else {
+        self.handleAppMount(app)
+      }
+    }
   }, 10)
 }
 
@@ -155,7 +160,7 @@ export function watchHashChange (isSSr: boolean, appName: string): void {
  */
 export function patchHistoryMethods (isSSr: boolean, appName: string): void {
   if (!isSSr) return
-
+  const self = this
   const methodsToPatch: string[] = [
     'pushState',
     'replaceState',
@@ -174,7 +179,13 @@ export function patchHistoryMethods (isSSr: boolean, appName: string): void {
 
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
-          if (app) extractHtml(app)
+          if (app) {
+            if (!app.url !== self.getRequestUrl()) {
+              extractHtml(app)
+            } else {
+              self.handleAppMount(app)
+            }
+          }
         }, 50)
         return result
       }

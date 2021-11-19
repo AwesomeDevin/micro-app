@@ -14,6 +14,7 @@ import {
 import microApp from './micro_app'
 import dispatchLifecyclesEvent from './interact/lifecycles_event'
 import { watchHashChange, patchHistoryMethods } from './source'
+import globalEnv from './libs/global_env'
 
 // record all micro-app elements
 export const elementInstanceMap = new Map<Element, boolean>()
@@ -71,8 +72,8 @@ export function defineElement (tagName: string): void {
         )
 
         // by awesomedevin
-        patchHistoryMethods(!!this.isSsr, this.appName)
-        watchHashChange(!!this.isSsr, this.appName)
+        patchHistoryMethods.call(this, !!this.isSsr, this.appName)
+        watchHashChange.call(this, !!this.isSsr, this.appName)
       })
 
       this.initialMount()
@@ -93,6 +94,7 @@ export function defineElement (tagName: string): void {
         [ObservedAttrName.URL]: 'appUrl',
         [ObservedAttrName.SSR]: 'isSsr',
         [ObservedAttrName.SUFFIX]: 'suffix',
+
       }
       if (
         this.legalAttribute(attr, newVal) &&
@@ -255,7 +257,7 @@ export function defineElement (tagName: string): void {
     private handleCreateApp (): void {
       const instance: AppInterface = new CreateApp({
         name: this.appName!,
-        url: this.appUrl!,
+        url: this.getRequestUrl()!,
         container: this.shadowRoot ?? this,
         inline: this.getDisposeResult('inline'),
         scopecss: !(this.getDisposeResult('disableScopecss') || this.getDisposeResult('shadowDOM')),
@@ -267,6 +269,14 @@ export function defineElement (tagName: string): void {
       })
 
       appInstanceMap.set(this.appName!, instance)
+    }
+
+    getRequestUrl () {
+      // Support to fetch SSR multi-page projects - by awesomedevin
+      const ssrUrl = (`${formatURL(this.appUrl, this.appName).replace(/\/$/, '')}${globalEnv.rawWindow.location.pathname}`).replace(/(\/| *)$/, '')
+      // // Compatibility with old logic
+      const url = `${this.isSsr ? ssrUrl : this.appUrl}${this.suffix}`
+      return url
     }
 
     /**
