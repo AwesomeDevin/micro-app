@@ -272,11 +272,12 @@ export function defineElement (tagName: string): void {
     }
 
     getRequestUrl () {
+      const routePrefix = this.getAttribute('routePrefix')
       // Support to fetch SSR multi-page projects - by awesomedevin
       const ssrUrl = (`${formatURL(this.appUrl, this.appName).replace(/\/$/, '')}${globalEnv.rawWindow.location.pathname}`).replace(/(\/| *)$/, '')
       // // Compatibility with old logic
       const url = `${this.isSsr ? ssrUrl : this.appUrl}${this.suffix}`
-      return url
+      return routePrefix ? url.replace(routePrefix, '') : url
     }
 
     /**
