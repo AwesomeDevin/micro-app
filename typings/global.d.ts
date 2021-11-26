@@ -58,6 +58,9 @@ declare module '@micro-app/types' {
     // Load resources
     loadSourceCode (): void
 
+    // Async css from App
+    asyncStyleFromAppTag(microAppBody: HTMLElement): void
+
     // resource is loaded
     onLoad (html: HTMLElement): void
 
@@ -146,6 +149,13 @@ declare module '@micro-app/types' {
     }
   }
 
+  type effectiveMetas = {
+    global: (metas: HTMLMetaElement[]) => HTMLMetaElement[]
+    modules: {
+      [name: string]: (metas: HTMLMetaElement[]) => HTMLMetaElement[]
+    }
+  }
+
   type fetchType = (url: string, options: Record<string, unknown>, appName: string | null) => Promise<string>
 
   type globalAssetsType = {
@@ -163,6 +173,7 @@ declare module '@micro-app/types' {
     macro?: boolean
     lifeCycles?: lifeCyclesType
     preFetchApps?: prefetchParamList
+    effectiveMetas?: effectiveMetas
     plugins?: plugins
     fetch?: fetchType
     globalAssets?: globalAssetsType,

@@ -1,4 +1,4 @@
-import type { OptionsType, MicroAppConfigType, lifeCyclesType, plugins, fetchType } from '@micro-app/types'
+import type { OptionsType, MicroAppConfigType, lifeCyclesType, plugins, fetchType, effectiveMetas } from '@micro-app/types'
 import { defineElement } from './micro_app_element'
 import preFetch, { getGlobalAssets } from './prefetch'
 import { logError, logWarn, isFunction, isBrowser, isPlainObject } from './libs/utils'
@@ -15,6 +15,7 @@ class MicroApp extends EventCenterForBaseApp implements MicroAppConfigType {
   macro?: boolean
   lifeCycles?: lifeCyclesType
   plugins?: plugins
+  effectiveMetas?: effectiveMetas
   fetch?: fetchType
   preFetch = preFetch
   start (options?: OptionsType) {
@@ -57,6 +58,11 @@ class MicroApp extends EventCenterForBaseApp implements MicroAppConfigType {
 
       if (isPlainObject(options.plugins)) {
         this.plugins = options.plugins
+      }
+
+      // 新增effectiveMeta 配置 - by awesomedevin
+      if (isPlainObject(options.effectiveMetas)) {
+        this.effectiveMetas = options.effectiveMetas
       }
 
       // load app assets when browser is idle

@@ -2,9 +2,10 @@ import type { AppInterface } from '@micro-app/types'
 import { fetchSource } from './fetch'
 import { logError, CompletionPath, pureCreateElement, debounce } from '../libs/utils'
 import { extractLinkFromHtml, fetchLinksFromHtml } from './links'
-import { extractScriptElement, fetchScriptsFromHtml } from './scripts'
+import { extractScriptElement, fetchScriptsFromHtml, useEffectiveMetas } from './scripts'
 import scopedCSS from './scoped_css'
 import { appInstanceMap } from '../create_app'
+import microApp from '../micro_app'
 
 /**
  * transform html string to dom
@@ -70,11 +71,25 @@ function extractSourceDom (htmlStr: string, app: AppInterface) {
   const microAppHead = wrapElement.querySelector('micro-app-head')
   const microAppBody = wrapElement.querySelector('micro-app-body')
 
+  // Effective meta tag of child App
+  const microMetas = microApp.effectiveMetas ? useEffectiveMetas(Array.from(wrapElement.getElementsByTagName('meta')), app.name, microApp.effectiveMetas) : []
+
+  // append meta Tag
+  if (microMetas.length) {
+    const rootHead = document.getElementsByTagName('head')[0]
+    for (const microMeta of microMetas) {
+      rootHead.appendChild(microMeta)
+    }
+  }
+
   if (!microAppHead || !microAppBody) {
     const msg = `element ${microAppHead ? 'body' : 'head'} is missing`
     app.onerror(new Error(msg))
     return logError(msg, app.name)
   }
+
+  // Async CSS - by awesomedevin
+  app.asyncStyleFromAppTag(microAppBody as HTMLElement)
 
   flatChildren(wrapElement, app, microAppHead)
 
