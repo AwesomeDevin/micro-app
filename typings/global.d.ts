@@ -54,6 +54,7 @@ declare module '@micro-app/types' {
     umdMode: boolean // is umd mode
     ssr: boolean
     suffix: string
+    loadSourceLevel?: number
 
     // Load resources
     loadSourceCode (): void

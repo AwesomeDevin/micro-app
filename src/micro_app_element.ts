@@ -172,6 +172,8 @@ export function defineElement (tagName: string): void {
            * if old app has unmounted and url is different, create new app to replace old one
            */
           this.handleCreateApp()
+        } else if (app.getAppStatus() === appStatus.MOUNTING) {
+          this.handleAppMount(app)
         } else {
           logError(`an app named ${this.appName} already exists`, this.appName)
         }

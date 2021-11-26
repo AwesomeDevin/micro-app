@@ -191,14 +191,14 @@ export function patchHistoryMethods (isSSr: boolean, appName: string): void {
       function mutator () {
         const app = appInstanceMap.get(appName)
         const result = original.apply(this, Array.prototype.slice.apply(arguments))
-
+        const isSameApp = app && self.getAttribute('name') === app.name
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
           if (app) {
-            if (!app.url !== self.getRequestUrl()) {
+            if (app.url !== self.getRequestUrl() && isSameApp) {
+              app.url = self.getRequestUrl()
+              app.loadSourceLevel = 0
               extractHtml(app)
-            } else {
-              self.handleAppMount(app)
             }
           }
         }, 50)

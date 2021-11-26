@@ -42,7 +42,6 @@ export interface CreateAppParam {
 
 export default class CreateApp implements AppInterface {
   private status: string = appStatus.NOT_LOADED
-  private loadSourceLevel: -1|0|1|2 = 0
   private umdHookMount: Func | null = null
   private umdHookUnmount: Func | null = null
   private libraryName: string | null = null
@@ -59,6 +58,7 @@ export default class CreateApp implements AppInterface {
   source: sourceType
   sandBox: SandBoxInterface | null = null
   suffix = ''
+  loadSourceLevel: -1|0|1|2 = 0
 
   // by awesomedevin
   ssr: boolean
