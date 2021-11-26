@@ -1,5 +1,15 @@
 import type { AttrType, MicroAppElementType, AppInterface } from '@micro-app/types'
-import { defer, formatURL, version, logError, isString, isFunction } from './libs/utils'
+import {
+  defer,
+  formatAppName,
+  formatAppURL,
+  version,
+  logError,
+  logWarn,
+  isString,
+  isFunction,
+  CompletionPath,
+} from './libs/utils'
 import { ObservedAttrName, appStatus, lifeCycles } from './constants'
 import CreateApp, { appInstanceMap } from './create_app'
 import {
@@ -13,7 +23,10 @@ import {
 } from './libs/additional'
 import microApp from './micro_app'
 import dispatchLifecyclesEvent from './interact/lifecycles_event'
+<<<<<<< HEAD
 import { watchHashChange, patchHistoryMethods } from './source'
+=======
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
 import globalEnv from './libs/global_env'
 
 // record all micro-app elements
@@ -41,8 +54,9 @@ export function defineElement (tagName: string): void {
     private isWating = false
     private cacheData: Record<PropertyKey, unknown> | null = null
     private hasConnected = false
-    appName = ''
-    appUrl = ''
+    appName = '' // app name
+    appUrl = '' // app url
+    ssrUrl = '' // html path in ssr mode
     version = version
     isSsr: boolean | null = null
     suffix = ''
@@ -101,18 +115,28 @@ export function defineElement (tagName: string): void {
         this[attrMap[attr]] !== newVal
       ) {
         if (attr === ObservedAttrName.URL && !this.appUrl) {
-          newVal = formatURL(newVal, this.appName)
+          newVal = formatAppURL(newVal, this.appName)
           if (!newVal) {
-            return logError('Invalid attribute url', this.appName)
+            return logError(`Invalid attribute url ${newVal}`, this.appName)
           }
           this.appUrl = newVal
           this.handleInitialNameAndUrl()
         } else if (attr === ObservedAttrName.NAME && !this.appName) {
+          const formatNewName = formatAppName(newVal)
+
+          if (!formatNewName) {
+            return logError(`Invalid attribute name ${newVal}`, this.appName)
+          }
+
           if (this.cacheData) {
-            microApp.setData(newVal, this.cacheData)
+            microApp.setData(formatNewName, this.cacheData)
             this.cacheData = null
           }
-          this.appName = newVal
+
+          this.appName = formatNewName
+          if (formatNewName !== newVal) {
+            this.setAttribute('name', this.appName)
+          }
           this.handleInitialNameAndUrl()
         } else if (attr === ObservedAttrName.SSR && this.isSsr === null) {
           // Gets the tag attribute value - by awesomedevin
@@ -129,9 +153,7 @@ export function defineElement (tagName: string): void {
 
     // handle for connectedCallback run before attributeChangedCallback
     private handleInitialNameAndUrl (): void {
-      if (this.hasConnected) {
-        this.initialMount()
-      }
+      this.hasConnected && this.initialMount()
     }
 
     // Perform global initialization when the element count is 1
@@ -154,23 +176,34 @@ export function defineElement (tagName: string): void {
         this.attachShadow({ mode: 'open' })
       }
 
+      if (this.getDisposeResult('ssr')) {
+        this.ssrUrl = CompletionPath(globalEnv.rawWindow.location.pathname, this.appUrl)
+      } else if (this.ssrUrl) {
+        this.ssrUrl = ''
+      }
+
       const app = appInstanceMap.get(this.appName)
       if (app) {
+<<<<<<< HEAD
         // SSR applications need to CreateApp
         if (
           app.url === this.appUrl && !app.ssr && (
+=======
+        const existAppUrl = app.ssrUrl || app.url
+        const activeAppUrl = this.ssrUrl || this.appUrl
+        if (
+          existAppUrl === activeAppUrl && (
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
             app.isPrefetch ||
             app.getAppStatus() === appStatus.UNMOUNT
           )
         ) {
           this.handleAppMount(app)
-        } else if (app.isPrefetch) {
-          logError(`the url ${this.appUrl} is different from prefetch url ${app.url}`, this.appName)
-        } else if (app.getAppStatus() === appStatus.UNMOUNT) {
+        } else if (app.isPrefetch || app.getAppStatus() === appStatus.UNMOUNT) {
           /**
-           * add this logic for SSR
-           * if old app has unmounted and url is different, create new app to replace old one
+           * url is different & old app is unmounted or prefetch, create new app to replace old one
            */
+          logWarn(`the ${app.isPrefetch ? 'prefetch' : 'unmounted'} app with url: ${existAppUrl} is replaced by a new app`, this.appName)
           this.handleCreateApp()
         } else {
           logError(`an app named ${this.appName} already exists`, this.appName)
@@ -185,6 +218,7 @@ export function defineElement (tagName: string): void {
      */
     private handleAttributeUpdate = (): void => {
       this.isWating = false
+<<<<<<< HEAD
       const attrName = this.getAttribute('name')
       const attrUrl = formatURL(this.getAttribute('url'), this.appName)
       this.isSsr = !!(this.getAttribute('ssr'))
@@ -193,31 +227,59 @@ export function defineElement (tagName: string): void {
       if (this.legalAttribute('name', attrName) && this.legalAttribute('url', attrUrl)) {
         const existApp = appInstanceMap.get(attrName!)
         if (attrName !== this.appName && existApp) {
+=======
+      const formatAttrName = formatAppName(this.getAttribute('name'))
+      const formatAttrUrl = formatAppURL(this.getAttribute('url'), this.appName)
+      if (this.legalAttribute('name', formatAttrName) && this.legalAttribute('url', formatAttrUrl)) {
+        const existApp = appInstanceMap.get(formatAttrName)
+        if (formatAttrName !== this.appName && existApp) {
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
           // handling of cached and non-prefetch apps
           if (appStatus.UNMOUNT !== existApp.getAppStatus() && !existApp.isPrefetch) {
             this.setAttribute('name', this.appName)
-            return logError(`an app named ${attrName} already exists`, this.appName)
+            return logError(`an app named ${formatAttrName} already exists`, this.appName)
           }
         }
 
-        if (attrName !== this.appName || attrUrl !== this.appUrl) {
-          this.handleUnmount(attrName === this.appName)
-          this.appName = attrName as string
-          this.appUrl = attrUrl
-          ;(this.shadowRoot ?? this).innerHTML = ''
+        if (formatAttrName !== this.appName || formatAttrUrl !== this.appUrl) {
+          this.handleUnmount(formatAttrName === this.appName)
+
           /**
-           * when existApp not undefined
-           * if attrName and this.appName are equal, existApp has been unmounted
-           * if attrName and this.appName are not equal, existApp is prefetch or unmounted
+           * change ssrUrl in ssr mode
+           * do not add judgment of formatAttrUrl === this.appUrl
            */
-          if (existApp && existApp.url === attrUrl) {
+          if (this.getDisposeResult('ssr')) {
+            this.ssrUrl = CompletionPath(globalEnv.rawWindow.location.pathname, formatAttrUrl)
+          } else if (this.ssrUrl) {
+            this.ssrUrl = ''
+          }
+
+          this.appName = formatAttrName as string
+          this.appUrl = formatAttrUrl
+          ;(this.shadowRoot ?? this).innerHTML = ''
+          if (formatAttrName !== this.getAttribute('name')) {
+            this.setAttribute('name', this.appName)
+          }
+
+          /**
+           * when existApp not null:
+           * scene1: if formatAttrName and this.appName are equal: exitApp is the current app, the url must be different, existApp has been unmounted
+           * scene2: if formatAttrName and this.appName are different: existApp must be prefetch or unmounted, if url is equal, then just mount, if url is different, then create new app to replace existApp
+           * scene3: url is different but ssrUrl is equal
+           * scene4: url is equal but ssrUrl is different, if url is equal, name must different
+           */
+          if (
+            existApp &&
+            existApp.url === this.appUrl &&
+            existApp.ssrUrl === this.ssrUrl
+          ) {
             // mount app
             this.handleAppMount(existApp)
           } else {
             this.handleCreateApp()
           }
         }
-      } else if (attrName !== this.appName) {
+      } else if (formatAttrName !== this.appName) {
         this.setAttribute('name', this.appName)
       }
     }
@@ -255,9 +317,23 @@ export function defineElement (tagName: string): void {
 
     // create app instance
     private handleCreateApp (): void {
+      /**
+       * actions for destory old app
+       * fix of unmounted umd app with disableSandbox
+       */
+      if (appInstanceMap.has(this.appName)) {
+        appInstanceMap.get(this.appName)!.actionsForCompletelyDestory()
+      }
+
       const instance: AppInterface = new CreateApp({
+<<<<<<< HEAD
         name: this.appName!,
         url: this.getRequestUrl()!,
+=======
+        name: this.appName,
+        url: this.appUrl,
+        ssrUrl: this.ssrUrl,
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
         container: this.shadowRoot ?? this,
         inline: this.getDisposeResult('inline'),
         scopecss: !(this.getDisposeResult('disableScopecss') || this.getDisposeResult('shadowDOM')),
@@ -268,7 +344,7 @@ export function defineElement (tagName: string): void {
         suffix: this.suffix
       })
 
-      appInstanceMap.set(this.appName!, instance)
+      appInstanceMap.set(this.appName, instance)
     }
 
     getRequestUrl () {
@@ -284,7 +360,7 @@ export function defineElement (tagName: string): void {
      * @param destroy delete cache resources when unmount
      */
     private handleUnmount (destroy: boolean): void {
-      const app = appInstanceMap.get(this.appName!)
+      const app = appInstanceMap.get(this.appName)
       if (app && appStatus.UNMOUNT !== app.getAppStatus()) app.unmount(destroy)
     }
 

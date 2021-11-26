@@ -13,12 +13,16 @@ import { appStatus, lifeCycles } from './constants'
 import SandBox from './sandbox'
 import {
   isFunction,
-  cloneNode,
+  cloneContainer,
   isBoolean,
   isPromise,
   logError,
+<<<<<<< HEAD
   isShadowRoot,
   CompletionPath,
+=======
+  getRootContainer,
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
 } from './libs/utils'
 import dispatchLifecyclesEvent, { dispatchUnmountToMicroApp } from './interact/lifecycles_event'
 import globalEnv from './libs/global_env'
@@ -30,6 +34,7 @@ export const appInstanceMap = new Map<string, AppInterface>()
 export interface CreateAppParam {
   name: string
   url: string
+  ssrUrl?: string
   scopecss: boolean
   useSandbox: boolean
   macro?: boolean
@@ -50,6 +55,7 @@ export default class CreateApp implements AppInterface {
   isPrefetch = false
   name: string
   url: string
+  ssrUrl: string
   container: HTMLElement | ShadowRoot | null = null
   inline: boolean
   scopecss: boolean
@@ -60,13 +66,28 @@ export default class CreateApp implements AppInterface {
   sandBox: SandBoxInterface | null = null
   suffix = ''
 
+<<<<<<< HEAD
   // by awesomedevin
   ssr: boolean
 
   constructor ({ name, url, container, inline, scopecss, useSandbox, macro, baseroute, ssr, suffix }: CreateAppParam) {
+=======
+  constructor ({
+    name,
+    url,
+    ssrUrl,
+    container,
+    inline,
+    scopecss,
+    useSandbox,
+    macro,
+    baseroute,
+  }: CreateAppParam) {
+>>>>>>> 340f29df7b1c7707e4eddfa1c9e9e8ff99f322b8
     this.container = container ?? null
     this.inline = inline ?? false
     this.baseroute = baseroute ?? ''
+    this.ssrUrl = ssrUrl ?? ''
     // optional during init👆
     this.name = name
     this.url = url
@@ -82,9 +103,7 @@ export default class CreateApp implements AppInterface {
     this.suffix = suffix || ''
 
     this.loadSourceCode()
-    if (this.useSandbox) {
-      this.sandBox = new SandBox(name, url, this.macro)
-    }
+    this.useSandbox && (this.sandBox = new SandBox(name, url, this.macro))
   }
 
   // Load resources
@@ -151,7 +170,7 @@ export default class CreateApp implements AppInterface {
 
     this.status = appStatus.MOUNTING
 
-    cloneNode(this.source.html as Element, this.container as Element, !this.umdMode)
+    cloneContainer(this.source.html as Element, this.container as Element, !this.umdMode)
 
     this.sandBox?.start(this.baseroute)
 
@@ -216,16 +235,11 @@ export default class CreateApp implements AppInterface {
   private dispatchMountedEvent (): void {
     if (appStatus.UNMOUNT !== this.status) {
       this.status = appStatus.MOUNTED
-      // remove defer in v0.4.2
-      // defer(() => {
-      //   if (appStatus.UNMOUNT !== this.status) {
       dispatchLifecyclesEvent(
         this.container as HTMLElement,
         this.name,
         lifeCycles.MOUNTED,
       )
-      //   }
-      // })
     }
   }
 
@@ -288,20 +302,24 @@ export default class CreateApp implements AppInterface {
 
     this.sandBox?.stop()
 
-    // actions for completely destroy
     if (destroy) {
-      if (!this.useSandbox && this.umdMode) {
-        delete window[this.libraryName as any]
-      }
-      appInstanceMap.delete(this.name)
+      this.actionsForCompletelyDestory()
     } else if (this.umdMode && (this.container as Element).childElementCount) {
       /**
       * In umd mode, ui frameworks will no longer create style elements to head in lazy load page when render again, so we should save container to keep these elements
       */
-      cloneNode(this.container as Element, this.source.html as Element, false)
+      cloneContainer(this.container as Element, this.source.html as Element, false)
     }
 
     this.container = null
+  }
+
+  // actions for completely destroy
+  actionsForCompletelyDestory (): void {
+    if (!this.useSandbox && this.umdMode) {
+      delete window[this.libraryName as any]
+    }
+    appInstanceMap.delete(this.name)
   }
 
   /**
@@ -353,11 +371,28 @@ export default class CreateApp implements AppInterface {
     // after execScripts, the app maybe unmounted
     if (appStatus.UNMOUNT !== this.status) {
       const global = (this.sandBox?.proxyWindow ?? globalEnv.rawWindow) as any
-      this.libraryName = (isShadowRoot(this.container) ? (this.container as ShadowRoot).host : this.container as Element).getAttribute('library') || `micro-app-${this.name}`
+      this.libraryName = getRootContainer(this.container!).getAttribute('library') || `micro-app-${this.name}`
       // do not use isObject
       return typeof global[this.libraryName] === 'object' ? global[this.libraryName] : {}
     }
 
     return {}
   }
+}
+
+// if app not prefetch & not unmount, then app is active
+export function getActiveApps (): string[] {
+  const activeApps: string[] = []
+  appInstanceMap.forEach((app: AppInterface, appName: string) => {
+    if (appStatus.UNMOUNT !== app.getAppStatus() && !app.isPrefetch) {
+      activeApps.push(appName)
+    }
+  })
+
+  return activeApps
+}
+
+// get all registered apps
+export function getAllApps (): string[] {
+  return Array.from(appInstanceMap.keys())
 }

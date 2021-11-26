@@ -40,49 +40,52 @@ function handleGlobalData(data) {
 // 全局数据监听
 window.microApp?.addGlobalDataListener(handleGlobalData);
 
-// ReactDOM.render(
-//   <React.StrictMode>
-//     <Router />
-//   </React.StrictMode>,
-//   document.getElementById("root")
-// );
 
-// // 监听卸载
-// window.addEventListener("unmount", function () {
-//   // microApp.clearApps()
-//   console.log("微应用react16卸载了");
-//   // 卸载前卸载全局数据监听
-//   // window.microApp?.removeGlobalDataListener(handleGlobalData);
+// ----------------------分割线-默认模式--------------------- //
+ReactDOM.render(
+  <React.StrictMode>
+    <Router />
+  </React.StrictMode>,
+  document.getElementById("root")
+);
+
+// 监听卸载
+window.addEventListener("unmount", function () {
+  ReactDOM.unmountComponentAtNode(document.getElementById("root"));
+  console.log("微应用react16卸载了 -- 自定义事件unmount");
+})
+
+console.timeEnd("react#16");
+
+// ----------------------分割线-umd模式--------------------- //
+// function mount () {
+//   ReactDOM.render(
+//     <React.StrictMode>
+//       <Router />
+//     </React.StrictMode>,
+//     document.getElementById("root")
+//   );
+//   console.timeEnd("react16");
+// }
+
+// function unmount () {
+//   console.log("微应用react16卸载了 -- 来自umd-unmount");
+//   // 卸载时关闭弹窗
+//   notification.destroy()
 //   // 卸载应用
 //   ReactDOM.unmountComponentAtNode(document.getElementById("root"));
-// })
+// }
 
-function mount () {
-  ReactDOM.render(
-    <React.StrictMode>
-      <Router />
-    </React.StrictMode>,
-    document.getElementById("root")
-  );
-  console.timeEnd("react16");
-}
+// // 微前端环境下，注册mount和unmount方法
+// if (window.__MICRO_APP_ENVIRONMENT__) {
+//   window[`micro-app-${window.__MICRO_APP_NAME__}`] = { mount, unmount }
+// } else {
+//   // 非微前端环境直接渲染
+//   mount();
+// }
 
-function unmount () {
-  console.log("微应用react16卸载了 -- 来自umd-unmount");
-  // 卸载时关闭弹窗
-  notification.destroy()
-  // 卸载应用
-  ReactDOM.unmountComponentAtNode(document.getElementById("root"));
-}
 
-// 微前端环境下，注册mount和unmount方法
-if (window.__MICRO_APP_ENVIRONMENT__) {
-  window[`micro-app-${window.__MICRO_APP_NAME__}`] = { mount, unmount }
-} else {
-  // 非微前端环境直接渲染
-  mount();
-}
-
+// ----------------------分割线-特殊场景测试--------------------- //
 // document.addEventListener('click', function () {
 //   console.log(`子应用${window.__MICRO_APP_NAME__}内部的document.addEventListener(click)绑定`)
 // }, false)
@@ -100,7 +103,7 @@ if (window.__MICRO_APP_ENVIRONMENT__) {
 // }, 1000)
 
 // const dynamicScript1 = document.createElement('script')
-// dynamicScript1.setAttribute('type', 'module')
+// // dynamicScript1.setAttribute('type', 'module')
 // // dynamicScript1.textContent = 'console.warn("inline module")'
 // dynamicScript1.setAttribute('src', 'http://127.0.0.1:8080/test.js')
 // dynamicScript1.onload = () => {
@@ -147,3 +150,4 @@ if (window.__MICRO_APP_ENVIRONMENT__) {
 
 //   console.log('DOMParser createElement', d1, d2, d3)
 // }, 3000)
+

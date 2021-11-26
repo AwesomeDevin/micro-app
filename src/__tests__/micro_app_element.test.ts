@@ -45,7 +45,7 @@ describe('micro_app_element', () => {
     })
   })
 
-  // 新建的app与预加载的app冲突
+  // 当新的app与旧的app name相同而url不同时，且旧app为预加载，则删除旧app的缓存，使用新app覆盖
   test('app3 has same name with prefetch app1 but the url is different', () => {
     const microappElement3 = document.createElement('micro-app')
     microappElement3.setAttribute('name', 'test-app1')
@@ -53,7 +53,7 @@ describe('micro_app_element', () => {
 
     appCon.appendChild(microappElement3)
 
-    expect(console.error).toHaveBeenCalledWith(`[micro-app] app test-app1: the url http://127.0.0.1:${ports.micro_app_element}/ssr-render/ is different from prefetch url http://127.0.0.1:${ports.micro_app_element}/common/`)
+    expect(console.warn).toHaveBeenCalled()
   })
 
   // name冲突
@@ -217,7 +217,11 @@ describe('micro_app_element', () => {
     await new Promise((reslove) => {
       function handleMounted () {
         microappElement13.removeEventListener('mounted', handleMounted)
-        microappElement13.setAttribute('name', 'test-app12')
+        // test-app12# 会格式化为 test-app12
+        microappElement13.setAttribute('name', 'test-app12#')
+        defer(() => {
+          expect(microappElement13.getAttribute('name')).toBe('test-app12')
+        })
         microappElement13.setAttribute('url', `http://127.0.0.1:${ports.micro_app_element}/common`)
         reslove(true)
       }
@@ -288,6 +292,74 @@ describe('micro_app_element', () => {
       microAppElement17.addEventListener('mounted', () => {
         expect(appInstanceMap.get('test-app16')!.url).toBe(`http://127.0.0.1:${ports.micro_app_element}/dynamic/`)
         reslove(true)
+      })
+    })
+  })
+
+  // 测试一些带有特殊符号的name
+  test('test name with special characters', async () => {
+    // scene1: 格式化后name为空
+    const microAppElement18 = document.createElement('micro-app')
+    microAppElement18.setAttribute('name', '123$')
+    expect(console.error).toBeCalledWith('[micro-app] Invalid attribute name 123$')
+
+    // scene2: 前后name不一致，重新赋值
+    const microAppElement19 = document.createElement('micro-app')
+    microAppElement19.setAttribute('name', 'test-app19$')
+    expect(microAppElement19.getAttribute('name')).toBe('test-app19')
+  })
+
+  // 测试ssr配置
+  test('test ssr mode', async () => {
+    const microAppElement20 = document.createElement('micro-app')
+    microAppElement20.setAttribute('name', 'test-app20')
+    microAppElement20.setAttribute('url', `http://127.0.0.1:${ports.micro_app_element}/common`)
+    microAppElement20.setAttribute('ssr', 'true')
+
+    // 场景1: 测试正常渲染的ssr应用
+    appCon.appendChild(microAppElement20)
+
+    // connectedCallback中会对url地址进行格式化，因为jest环境下，location.pathname 默认为 '/'，所以/common被截掉
+    expect(microAppElement20.ssrUrl).toBe(`http://127.0.0.1:${ports.micro_app_element}/`)
+
+    // 场景2: 再次渲染时，去除ssr配置，如果有 ssrUrl，则进行删除
+    appCon.removeChild(microAppElement20)
+    microAppElement20.removeAttribute('ssr')
+    appCon.appendChild(microAppElement20)
+
+    expect(microAppElement20.ssrUrl).toBe('')
+
+    // 场景3: ssr模式下动态修改url的值，此时ssrUrl会进行同步更新
+    appCon.removeChild(microAppElement20)
+    microAppElement20.setAttribute('ssr', 'true')
+    appCon.appendChild(microAppElement20)
+
+    await new Promise((reslove) => {
+      microAppElement20.addEventListener('mounted', () => {
+        microAppElement20.setAttribute('url', `http://127.0.0.1:${ports.micro_app_element}/dynamic/`)
+        defer(() => {
+          expect(microAppElement20.ssrUrl).toBe(`http://127.0.0.1:${ports.micro_app_element}/`)
+          reslove(true)
+        })
+      })
+    })
+
+    // 场景4: ssr模式已经渲染，修改url的值的同时去除ssr配置，需要将ssrUrl的值删除
+    const microAppElement21 = document.createElement('micro-app')
+    microAppElement21.setAttribute('name', 'test-app21')
+    microAppElement21.setAttribute('url', `http://127.0.0.1:${ports.micro_app_element}/common`)
+    microAppElement21.setAttribute('ssr', 'true')
+
+    appCon.appendChild(microAppElement21)
+
+    await new Promise((reslove) => {
+      microAppElement21.addEventListener('mounted', () => {
+        microAppElement21.removeAttribute('ssr')
+        microAppElement21.setAttribute('url', `http://127.0.0.1:${ports.micro_app_element}/dynamic/`)
+        defer(() => {
+          expect(microAppElement21.ssrUrl).toBe('')
+          reslove(true)
+        })
       })
     })
   })

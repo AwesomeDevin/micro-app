@@ -30,6 +30,7 @@ declare module '@micro-app/types' {
     defer: boolean // defer script
     module: boolean // module type script
     isGlobal?: boolean // share js to global
+    code2Function?: Function // code to Function
   }
 
   interface sourceType {
@@ -43,6 +44,7 @@ declare module '@micro-app/types' {
     isPrefetch: boolean // whether prefetch app, default is false
     name: string // app name
     url: string // app url
+    ssrUrl: string // html path in ssr mode
     container: HTMLElement | ShadowRoot | null // app container
     inline: boolean //  whether js runs in inline script mode, default is false
     scopecss: boolean // whether use css scoped, default is true
@@ -79,6 +81,9 @@ declare module '@micro-app/types' {
 
     // get app status
     getAppStatus (): string
+
+    // actions for completely destroy
+    actionsForCompletelyDestory (): void
   }
 
   interface MicroAppElementType {
