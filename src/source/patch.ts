@@ -454,7 +454,7 @@ export function rejectMicroAppStyle (): void {
 export function extractImportCss (styleElement: HTMLStyleElement, app: AppInterface, microAppHead?: Element): void {
   const styleTextContent = styleElement.textContent
   const container = microAppHead || app?.container?.querySelector('micro-app-head')
-  const matchs = styleTextContent && styleTextContent.match(/"(\w+|.+)";/g)
+  const matchs = styleTextContent && styleTextContent.match(/"(.+\.css)"/g)
   const cssLink = matchs ? matchs[0].replace(/"|;/g, '') : ''
   const url = CompletionPath(cssLink || '', app.url)
 
