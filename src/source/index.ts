@@ -1,6 +1,6 @@
 import type { AppInterface } from '@micro-app/types'
 import { fetchSource } from './fetch'
-import { logError, CompletionPath, pureCreateElement, debounce } from '../libs/utils'
+import { logError, CompletionPath, pureCreateElement } from '../libs/utils'
 import { extractLinkFromHtml, fetchLinksFromHtml } from './links'
 import { extractScriptElement, fetchScriptsFromHtml, useEffectiveMetas } from './scripts'
 import scopedCSS from './scoped_css'
@@ -173,8 +173,7 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean): 
 /**
  * Intercept mutating methods - by awesomedevin
  */
-export function patchHistoryMethods (isSSr: boolean, appName: string): void {
-  if (!isSSr) return
+export function patchHistoryMethods (appName: string): void {
   const methodsToPatch: string[] = [
     'pushState',
     'replaceState',

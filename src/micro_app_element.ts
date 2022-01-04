@@ -72,7 +72,7 @@ export function defineElement (tagName: string): void {
         )
 
         // by awesomedevin
-        patchHistoryMethods.call(this, !!this.isSsr, this.appName)
+        this.getDisposeResult('ssr') && patchHistoryMethods.call(this, this.appName)
       })
 
       this.initialMount()
