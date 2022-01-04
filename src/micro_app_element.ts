@@ -13,7 +13,7 @@ import {
 } from './libs/additional'
 import microApp from './micro_app'
 import dispatchLifecyclesEvent from './interact/lifecycles_event'
-import { watchHashChange, patchHistoryMethods } from './source'
+import { patchHistoryMethods } from './source'
 import globalEnv from './libs/global_env'
 
 // record all micro-app elements
@@ -73,7 +73,6 @@ export function defineElement (tagName: string): void {
 
         // by awesomedevin
         patchHistoryMethods.call(this, !!this.isSsr, this.appName)
-        watchHashChange.call(this, !!this.isSsr, this.appName)
       })
 
       this.initialMount()
@@ -274,12 +273,12 @@ export function defineElement (tagName: string): void {
     }
 
     getRequestUrl () {
-      const routePrefix = this.getAttribute('routePrefix')
+      const baseRoute = this.getBaseRouteCompatible()
       // Support to fetch SSR multi-page projects - by awesomedevin
       const ssrUrl = (`${formatURL(this.appUrl, this.appName).replace(/\/$/, '')}${globalEnv.rawWindow.location.pathname}`).replace(/(\/| *)$/, '')
       // // Compatibility with old logic
       const url = `${this.isSsr ? ssrUrl : this.appUrl}${this.suffix}`
-      return routePrefix ? url.replace(routePrefix, '') : url
+      return baseRoute ? url.replace(baseRoute, '') : url
     }
 
     /**

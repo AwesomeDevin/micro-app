@@ -152,37 +152,34 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean): 
   })
 }
 
-// observe hash change - by awesomedevin
-export function watchHashChange (isSSr: boolean, appName: string): void {
-  if (!isSSr) return
-  const self = this
+// // observe hash change - by awesomedevin
+// export function watchHashChange (isSSr: boolean, appName: string): void {
+//   if (!isSSr) return
+//   const self = this
 
-  window.onhashchange = debounce(function () {
-    // console.log('路由被修改了')
-    const app = appInstanceMap.get(appName)
-    if (app) {
-      if (!app.url !== self.getRequestUrl()) {
-        extractHtml(app)
-      } else {
-        self.handleAppMount(app)
-      }
-    }
-  }, 10)
-}
+//   window.onhashchange = debounce(function () {
+//     // console.log('路由被修改了')
+//     const app = appInstanceMap.get(appName)
+//     if (app) {
+//       if (!app.url !== self.getRequestUrl()) {
+//         extractHtml(app)
+//       } else {
+//         self.handleAppMount(app)
+//       }
+//     }
+//   }, 10)
+// }
 
 /**
  * Intercept mutating methods - by awesomedevin
  */
 export function patchHistoryMethods (isSSr: boolean, appName: string): void {
   if (!isSSr) return
-  const self = this
   const methodsToPatch: string[] = [
     'pushState',
     'replaceState',
   ]
   const historyObj = window.history
-
-  let timer: NodeJS.Timeout
 
   methodsToPatch.forEach(function (method) {
   // cache original method
@@ -190,18 +187,8 @@ export function patchHistoryMethods (isSSr: boolean, appName: string): void {
     def(historyObj, method,
       function mutator () {
         const app = appInstanceMap.get(appName)
+        arguments[2] = arguments[2].includes(app?.baseroute) ? arguments[2] : `${app?.baseroute}${arguments[2]}`
         const result = original.apply(this, Array.prototype.slice.apply(arguments))
-        const isSameApp = app && self.getAttribute('name') === app.name
-        if (timer) clearTimeout(timer)
-        timer = setTimeout(() => {
-          if (app) {
-            if (app.url !== self.getRequestUrl() && isSameApp) {
-              app.url = self.getRequestUrl()
-              app.loadSourceLevel = 0
-              extractHtml(app)
-            }
-          }
-        }, 50)
         return result
       }
     )
