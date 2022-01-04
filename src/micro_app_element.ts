@@ -278,7 +278,7 @@ export function defineElement (tagName: string): void {
       const ssrUrl = (`${formatURL(this.appUrl, this.appName).replace(/\/$/, '')}${globalEnv.rawWindow.location.pathname}`).replace(/(\/| *)$/, '')
       // // Compatibility with old logic
       const url = `${this.isSsr ? ssrUrl : this.appUrl}${this.suffix}`
-      return baseRoute ? url.replace(baseRoute, '') : url
+      return baseRoute && this.getDisposeResult('ssr') ? url.replace(baseRoute, '') : url
     }
 
     /**
