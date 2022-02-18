@@ -2,8 +2,9 @@ import type { AppInterface } from '@micro-app/types'
 import { fetchSource } from './fetch'
 import { logError, CompletionPath, pureCreateElement } from '../libs/utils'
 import { extractLinkFromHtml, fetchLinksFromHtml } from './links'
-import { extractScriptElement, fetchScriptsFromHtml } from './scripts'
+import { extractScriptElement, fetchScriptsFromHtml, useEffectiveMetas } from './scripts'
 import scopedCSS from './scoped_css'
+import microApp from '../micro_app'
 
 /**
  * transform html string to dom
@@ -38,8 +39,8 @@ function flatChildren (
     if (dom instanceof HTMLLinkElement) {
       if (dom.hasAttribute('exclude')) {
         parent.replaceChild(document.createComment('link element with exclude attribute ignored by micro-app'), dom)
-      } else if (app.scopecss && !dom.hasAttribute('ignore')) {
-        extractLinkFromHtml(dom, parent, app, microAppHead)
+      } else if (!dom.hasAttribute('ignore')) {
+        extractLinkFromHtml(dom, parent, app)
       } else if (dom.hasAttribute('href')) {
         dom.setAttribute('href', CompletionPath(dom.getAttribute('href')!, app.url))
       }
@@ -47,7 +48,8 @@ function flatChildren (
       if (dom.hasAttribute('exclude')) {
         parent.replaceChild(document.createComment('style element with exclude attribute ignored by micro-app'), dom)
       } else if (app.scopecss && !dom.hasAttribute('ignore')) {
-        microAppHead.appendChild(scopedCSS(dom, app.name, microAppHead))
+        scopedCSS(dom, app)
+        microAppHead.appendChild(scopedCSS(dom, app, microAppHead))
       }
     } else if (dom instanceof HTMLScriptElement) {
       extractScriptElement(dom, parent, app)
@@ -68,6 +70,17 @@ function extractSourceDom (htmlStr: string, app: AppInterface) {
   const wrapElement = getWrapElement(htmlStr)
   const microAppHead = wrapElement.querySelector('micro-app-head')
   const microAppBody = wrapElement.querySelector('micro-app-body')
+
+  // Effective meta tag of child App
+  const microMetas = microApp.effectiveMetas ? useEffectiveMetas(Array.from(wrapElement.getElementsByTagName('meta')), app.name, microApp.effectiveMetas) : []
+
+  // append meta Tag
+  if (microMetas.length) {
+    const rootHead = document.getElementsByTagName('head')[0]
+    for (const microMeta of microMetas) {
+      rootHead.appendChild(microMeta)
+    }
+  }
 
   if (!microAppHead || !microAppBody) {
     const msg = `element ${microAppHead ? 'body' : 'head'} is missing`
@@ -95,7 +108,7 @@ function extractSourceDom (htmlStr: string, app: AppInterface) {
  * @param app app
  */
 export default function extractHtml (app: AppInterface): void {
-  fetchSource(app.url, app.name, { cache: 'no-cache' }).then((htmlStr: string) => {
+  fetchSource(app.ssrUrl || app.url, app.name, { cache: 'no-cache' }).then((htmlStr: string) => {
     if (!htmlStr) {
       const msg = 'html is empty, please check in detail'
       app.onerror(new Error(msg))
