@@ -8,6 +8,8 @@ import type {
 } from '@micro-app/types'
 import extractHtml from './source'
 import { execScripts } from './source/scripts'
+import { commonElementHander } from './source/patch'
+
 import { appStates, lifeCycles, keepAliveStates } from './constants'
 import SandBox from './sandbox'
 import {
@@ -19,6 +21,8 @@ import {
   logWarn,
   getRootContainer,
   formatAppName,
+  // isShadowRoot,
+  CompletionPath,
 } from './libs/utils'
 import dispatchLifecyclesEvent, { dispatchCustomEventToMicroApp } from './interact/lifecycles_event'
 import globalEnv from './libs/global_env'
@@ -111,6 +115,32 @@ export default class CreateApp implements AppInterface {
     }
   }
 
+  // watch head
+  observeHead (): void {
+    const observeTarget = this.container?.querySelector('micro-app-head')
+    observeTarget?.addEventListener('DOMNodeInserted', (data: Event) => {
+      const child = data.target
+      const { origin } = new URL(this.url)
+      if (child) {
+        // Style tags with data-n-href attributes require special handling - by awesomedevin
+        if (child && child instanceof HTMLStyleElement && child.getAttribute('data-n-href')) {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.type = 'text/css'
+          link.href = CompletionPath(child.getAttribute('data-n-href') || '', this.url)
+          commonElementHander(observeTarget, link, child, globalEnv.rawReplaceChild)
+        } else if (child && child instanceof HTMLLinkElement && child.getAttribute('href') && !child.getAttribute('href')?.match(origin)) {
+          const href = child.getAttribute('href')
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.type = 'text/css'
+          link.href = CompletionPath(href || '', this.url)
+          commonElementHander(observeTarget, link, child, globalEnv.rawReplaceChild)
+        }
+      }
+    })
+  }
+
   /**
    * Error loading HTML
    * @param e Error
@@ -157,6 +187,9 @@ export default class CreateApp implements AppInterface {
     cloneContainer(this.source.html as Element, this.container as Element, !this.umdMode)
 
     this.sandBox?.start(this.baseroute)
+
+    // Compatible with next dynamic resource loading - by awesomedevin
+    this.observeHead()
 
     let umdHookMountResult: any // result of mount function
 
