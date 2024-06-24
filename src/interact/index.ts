@@ -1,7 +1,15 @@
 import { CallableFunctionForInteract } from '@micro-app/types'
 import EventCenter from './event_center'
 import { appInstanceMap } from '../create_app'
-import { removeDomScope, isString, isFunction, isPlainObject, isShadowRoot } from '../libs/utils'
+import {
+  removeDomScope,
+  isString,
+  isFunction,
+  isPlainObject,
+  formatAppName,
+  logError,
+  getRootContainer,
+} from '../libs/utils'
 
 const eventCenter = new EventCenter()
 
@@ -10,7 +18,7 @@ const eventCenter = new EventCenter()
  * @param appName app.name
  * @param fromBaseApp is from base app
  */
-function formatEventName (appName: string, fromBaseApp: boolean): string {
+function createEventName (appName: string, fromBaseApp: boolean): string {
   if (!isString(appName) || !appName) return ''
   return fromBaseApp ? `__from_base_app_${appName}__` : `__from_micro_app_${appName}__`
 }
@@ -37,20 +45,34 @@ class EventCenterForGlobal {
    * @param cb listener
    */
   removeGlobalDataListener (cb: CallableFunctionForInteract): void {
-    if (isFunction(cb)) {
-      eventCenter.off('global', cb)
-    }
+    isFunction(cb) && eventCenter.off('global', cb)
   }
 
   /**
    * dispatch global data
    * @param data data
    */
-  setGlobalData (data: Record<PropertyKey, unknown>): void {
+  setGlobalData (
+    data: Record<PropertyKey, unknown>,
+    nextStep?: CallableFunction,
+    force?: boolean,
+  ): void {
     // clear dom scope before dispatch global data, apply to micro app
     removeDomScope()
 
-    eventCenter.dispatch('global', data)
+    eventCenter.dispatch(
+      'global',
+      data,
+      (resArr: unknown[]) => isFunction(nextStep) && nextStep(resArr),
+      force,
+    )
+  }
+
+  forceSetGlobalData (
+    data: Record<PropertyKey, unknown>,
+    nextStep?: CallableFunction,
+  ): void {
+    this.setGlobalData(data, nextStep, true)
   }
 
   /**
@@ -58,6 +80,13 @@ class EventCenterForGlobal {
    */
   getGlobalData (): Record<PropertyKey, unknown> | null {
     return eventCenter.getData('global')
+  }
+
+  /**
+   * clear global data
+   */
+  clearGlobalData (): void {
+    eventCenter.clearData('global')
   }
 
   /**
@@ -90,7 +119,7 @@ export class EventCenterForBaseApp extends EventCenterForGlobal {
    * @param autoTrigger If there is cached data when first bind listener, whether it needs to trigger, default is false
    */
   addDataListener (appName: string, cb: CallableFunction, autoTrigger?: boolean): void {
-    eventCenter.on(formatEventName(appName, false), cb, autoTrigger)
+    eventCenter.on(createEventName(formatAppName(appName), false), cb, autoTrigger)
   }
 
   /**
@@ -99,9 +128,7 @@ export class EventCenterForBaseApp extends EventCenterForGlobal {
    * @param cb listener
    */
   removeDataListener (appName: string, cb: CallableFunction): void {
-    if (isFunction(cb)) {
-      eventCenter.off(formatEventName(appName, false), cb)
-    }
+    isFunction(cb) && eventCenter.off(createEventName(formatAppName(appName), false), cb)
   }
 
   /**
@@ -110,7 +137,7 @@ export class EventCenterForBaseApp extends EventCenterForGlobal {
    * @param fromBaseApp whether get data from base app, default is false
    */
   getData (appName: string, fromBaseApp = false): Record<PropertyKey, unknown> | null {
-    return eventCenter.getData(formatEventName(appName, fromBaseApp))
+    return eventCenter.getData(createEventName(formatAppName(appName), fromBaseApp))
   }
 
   /**
@@ -118,8 +145,35 @@ export class EventCenterForBaseApp extends EventCenterForGlobal {
    * @param appName app.name
    * @param data data
    */
-  setData (appName: string, data: Record<PropertyKey, unknown>): void {
-    eventCenter.dispatch(formatEventName(appName, true), data)
+  setData (
+    appName: string,
+    data: Record<PropertyKey, unknown>,
+    nextStep?: CallableFunction,
+    force?: boolean,
+  ): void {
+    eventCenter.dispatch(
+      createEventName(formatAppName(appName), true),
+      data,
+      (resArr: unknown[]) => isFunction(nextStep) && nextStep(resArr),
+      force,
+    )
+  }
+
+  forceSetData (
+    appName: string,
+    data: Record<PropertyKey, unknown>,
+    nextStep?: CallableFunction,
+  ): void {
+    this.setData(appName, data, nextStep, true)
+  }
+
+  /**
+   * clear data from base app
+   * @param appName app.name
+   * @param fromBaseApp whether clear data from child app, default is true
+   */
+  clearData (appName: string, fromBaseApp = true): void {
+    eventCenter.clearData(createEventName(formatAppName(appName), fromBaseApp))
   }
 
   /**
@@ -127,7 +181,7 @@ export class EventCenterForBaseApp extends EventCenterForGlobal {
    * @param appName app.name
    */
   clearDataListener (appName: string): void {
-    eventCenter.off(formatEventName(appName, false))
+    eventCenter.off(createEventName(formatAppName(appName), false))
   }
 }
 
@@ -141,7 +195,8 @@ export class EventCenterForMicroApp extends EventCenterForGlobal {
 
   constructor (appName: string) {
     super()
-    this.appName = appName
+    this.appName = formatAppName(appName)
+    !this.appName && logError(`Invalid appName ${appName}`)
   }
 
   /**
@@ -151,7 +206,7 @@ export class EventCenterForMicroApp extends EventCenterForGlobal {
    */
   addDataListener (cb: CallableFunctionForInteract, autoTrigger?: boolean): void {
     cb.__AUTO_TRIGGER__ = autoTrigger
-    eventCenter.on(formatEventName(this.appName, true), cb, autoTrigger)
+    eventCenter.on(createEventName(this.appName, true), cb, autoTrigger)
   }
 
   /**
@@ -159,84 +214,115 @@ export class EventCenterForMicroApp extends EventCenterForGlobal {
    * @param cb listener
    */
   removeDataListener (cb: CallableFunctionForInteract): void {
-    if (isFunction(cb)) {
-      eventCenter.off(formatEventName(this.appName, true), cb)
-    }
+    isFunction(cb) && eventCenter.off(createEventName(this.appName, true), cb)
   }
 
   /**
    * get data from base app
    */
-  getData (): Record<PropertyKey, unknown> | null {
-    return eventCenter.getData(formatEventName(this.appName, true))
+  getData (fromBaseApp = true): Record<PropertyKey, unknown> | null {
+    return eventCenter.getData(createEventName(this.appName, fromBaseApp))
   }
 
   /**
    * dispatch data to base app
    * @param data data
    */
-  dispatch (data: Record<PropertyKey, unknown>): void {
+  dispatch (data: Record<PropertyKey, unknown>, nextStep?: CallableFunction, force?: boolean): void {
     removeDomScope()
 
-    eventCenter.dispatch(formatEventName(this.appName, false), data)
+    eventCenter.dispatch(
+      createEventName(this.appName, false),
+      data,
+      (resArr: unknown[]) => isFunction(nextStep) && nextStep(resArr),
+      force,
+      () => {
+        const app = appInstanceMap.get(this.appName)
+        if (app?.container && isPlainObject(data)) {
+          const event = new CustomEvent('datachange', {
+            detail: {
+              data: eventCenter.getData(createEventName(this.appName, false))
+            }
+          })
 
-    const app = appInstanceMap.get(this.appName)
-    if (app?.container && isPlainObject(data)) {
-      const event = new CustomEvent('datachange', {
-        detail: {
-          data,
+          getRootContainer(app.container).dispatchEvent(event)
         }
       })
+  }
 
-      let element = app.container
-      if (isShadowRoot(element)) {
-        element = (element as ShadowRoot).host as HTMLElement
-      }
-      element.dispatchEvent(event)
-    }
+  forceDispatch (data: Record<PropertyKey, unknown>, nextStep?: CallableFunction): void {
+    this.dispatch(data, nextStep, true)
+  }
+
+  /**
+   * clear data from child app
+   * @param fromBaseApp whether clear data from base app, default is false
+   */
+  clearData (fromBaseApp = false): void {
+    eventCenter.clearData(createEventName(this.appName, fromBaseApp))
   }
 
   /**
    * clear all listeners
    */
   clearDataListener (): void {
-    eventCenter.off(formatEventName(this.appName, true))
+    eventCenter.off(createEventName(this.appName, true))
   }
 }
 
 /**
  * Record UMD function before exec umdHookMount
- * @param microAppEventCneter
+ * NOTE: record maybe call twice when unmount prerender, keep-alive app manually with umd mode
+ * @param microAppEventCenter instance of EventCenterForMicroApp
  */
-export function recordDataCenterSnapshot (microAppEventCneter: EventCenterForMicroApp): void {
-  const appName = microAppEventCneter.appName
-  microAppEventCneter.umdDataListeners = { global: new Set(), normal: new Set() }
+export function recordDataCenterSnapshot (microAppEventCenter: EventCenterForMicroApp): void {
+  if (microAppEventCenter) {
+    microAppEventCenter.umdDataListeners = {
+      global: new Set(microAppEventCenter.umdDataListeners?.global),
+      normal: new Set(microAppEventCenter.umdDataListeners?.normal),
+    }
 
-  const globalEventInfo = eventCenter.eventList.get('global')
-  if (globalEventInfo) {
-    for (const cb of globalEventInfo.callbacks) {
-      if (appName === cb.__APP_NAME__) {
-        microAppEventCneter.umdDataListeners.global.add(cb)
+    const globalEventInfo = eventCenter.eventList.get('global')
+    if (globalEventInfo) {
+      for (const cb of globalEventInfo.callbacks) {
+        if (microAppEventCenter.appName === cb.__APP_NAME__) {
+          microAppEventCenter.umdDataListeners.global.add(cb)
+        }
       }
     }
-  }
 
-  const subAppEventInfo = eventCenter.eventList.get(formatEventName(appName, true))
-  if (subAppEventInfo) {
-    microAppEventCneter.umdDataListeners.normal = new Set(subAppEventInfo.callbacks)
+    const subAppEventInfo = eventCenter.eventList.get(createEventName(microAppEventCenter.appName, true))
+    if (subAppEventInfo) {
+      for (const cb of subAppEventInfo.callbacks) {
+        microAppEventCenter.umdDataListeners.normal.add(cb)
+      }
+    }
   }
 }
 
 /**
  * Rebind the UMD function of the record before remount
- * @param microAppEventCneter instance of EventCenterForMicroApp
+ * @param microAppEventCenter instance of EventCenterForMicroApp
  */
-export function rebuildDataCenterSnapshot (microAppEventCneter: EventCenterForMicroApp): void {
-  for (const cb of microAppEventCneter.umdDataListeners!.global) {
-    microAppEventCneter.addGlobalDataListener(cb, cb.__AUTO_TRIGGER__)
-  }
+export function rebuildDataCenterSnapshot (microAppEventCenter: EventCenterForMicroApp): void {
+  // in withSandbox preRender mode with module script, umdDataListeners maybe undefined
+  if (microAppEventCenter?.umdDataListeners) {
+    for (const cb of microAppEventCenter.umdDataListeners.global) {
+      microAppEventCenter.addGlobalDataListener(cb, cb.__AUTO_TRIGGER__)
+    }
 
-  for (const cb of microAppEventCneter.umdDataListeners!.normal) {
-    microAppEventCneter.addDataListener(cb, cb.__AUTO_TRIGGER__)
+    for (const cb of microAppEventCenter.umdDataListeners.normal) {
+      microAppEventCenter.addDataListener(cb, cb.__AUTO_TRIGGER__)
+    }
+
+    resetDataCenterSnapshot(microAppEventCenter)
   }
+}
+
+/**
+ * delete umdDataListeners from microAppEventCenter
+ * @param microAppEventCenter instance of EventCenterForMicroApp
+ */
+export function resetDataCenterSnapshot (microAppEventCenter: EventCenterForMicroApp): void {
+  delete microAppEventCenter?.umdDataListeners
 }

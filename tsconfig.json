@@ -31,7 +31,8 @@
   ],
   "exclude": [
     "node_modules",
-    "examples"
+    "dev",
+    "src/__tests__"
   ],
   "compileOnSave": false
 }

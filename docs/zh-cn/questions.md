@@ -1,13 +1,13 @@
-## 1、我需要用到微前端框架吗
-目前实现微前端的主流方式有两种：iframe和微前端框架。
+## 1、我需要用到微前端吗？
+在此之前建议你先阅读[Why Not Iframe](https://www.yuque.com/kuitos/gky7yw/gesexv)。
 
-iframe将子应用作为一个窗口嵌入到基座应用中，由于需要初始化整个window，所以性能不好，又因为需要指定宽高，导致出现双滚动条和弹窗无法覆盖全局的问题，当然还有其它一些问题，但iframe依然是最稳定，上手难度最低的方案。
+相比于iframe，微前端拥有更好的用户体验，同时它也要求开发者对于前端框架和路由原理具有一定的理解。
 
-微前端框架是将子应用的静态资源加载到基座应用进行执行和渲染，所以本质上是一个页面。它可以避免iframe存在的各种问题，但有上手难度，需要对框架、路由运行原理有一定了解。
+微前端的本质是将两个不相关的页面强行合并为一，这其中不可避免会出现各种冲突，虽然微前端框架解决了几乎所有的冲突，但偶尔也会有特殊情况出现，这需要开发者具有处理特殊情况的能力和心态。
 
-总结下来，iframe更加稳定，微前端框架上限更高。如果是比较简单、对渲染速度不敏感的页面，可以使用iframe。如果页面比较复杂，对渲染速度有一定要求，推荐使用微前端框架。当然如果你喜欢折腾，也推荐使用微前端框架，它会帮助你更好的理解路由和框架原理。
+微前端不是万能的，它的实现原理注定无法像iframe一样简单稳定。
 
-以上只是我们的建议，没有完美的方案，适合自己的就是最好的。
+如果你不知道自己是否需要用微前端，那么大概率是不需要。
 
 ## 2、子应用一定要支持跨域吗？
 是的！
@@ -36,84 +36,22 @@ micro-app依赖于CustomElements和Proxy两个较新的API。
 - PC端：除了IE浏览器，其它浏览器基本兼容。
 - 移动端：ios10+、android5+
 
-## 4、微应用无法渲染但没有报错
-请检查路由配置是否正确，详情查看[路由](/zh-cn/route)一章，或者[下面第5条：jsonpFunction是否冲突](/zh-cn/questions?id=_5、webpack-jsonpfunction-冲突导致渲染失败)
 
-## 5、webpack-jsonpfunction-冲突导致渲染失败
-这种情况常见于多个应用都是通过create-react-app等类似脚手架创建的项目，或一个应用多次重复渲染。
-
-因为相同的jsonpFunction名称会导致资源加载混乱。
-
-**解决方式：修改子应用的webpack配置**
-<!-- tabs:start -->
-
-#### ** webpack4 **
-```js
-// webpack.config.js
-module.exports = {
-  ...
-  output: {
-    ...
-    jsonpFunction: `webpackJsonp_custom_app_name`,
-    globalObject: 'window',
-  },
-}
-```
-
-#### ** webpack5 **
-```js
-// webpack.config.js
-module.exports = {
-  ...
-  output: {
-    ...
-    chunkLoadingGlobal: 'webpackJsonp_custom_app_name',
-    globalObject: 'window',
-  },
-}
-```
-<!-- tabs:end -->
-
-
-## 6、开发时每次保存文件时报错 (热更新导致报错)
-在一些场景下，热更新会导致保存时报错，请关闭热更新来解决这个问题，同时我们也在尝试更好的解决方案。
-
-## 7、vue3的问题
-**1、样式失效**
-
-通过[禁用样式隔离](/zh-cn/configure?id=disablescopecss)解决。
-
-**2、图片等静态资源无法正常加载**
-
-vue3中需要配置publicPath补全资源地址，详情请查看[publicPath](/zh-cn/static-source?id=publicpath)
-
-
-## 8、开发环境中渲染angular子应用报错
-目前需要关闭angular的热更新来解决这个问题，同时我们也在尝试更好的解决方案。
-```bash
-"scripts": {
-  "start": "ng serve --live-reload false",
-},
-```
-
-## 9、micro-app 报错 an app named xx already exists
+## 4、micro-app 报错 an app named xx already exists
 这是`name`名称冲突导致的，请确保每个子应用的`name`值是唯一的。
 
-## 10、基座应用的样式影响到子应用
-虽然我们将子应用的样式进行隔离，但基座应用的样式依然会影响到子应用，如果发生冲突，推荐通过约定前缀或CSS Modules方式解决。
+## 5、主应用的样式影响到子应用
+虽然我们将子应用的样式进行隔离，但主应用的样式依然会影响到子应用，如果发生冲突，推荐通过约定前缀或CSS Modules方式解决。
 
 如果你使用的是`ant-design`等组件库，一般会提供添加前缀进行样式隔离的功能。
 
-## 11、支持vite吗
-支持，详情请查看[适配vite](/zh-cn/advanced?id=_2、适配vite)
-
-## 12、子应用在沙箱环境中如何获取到外部真实window？
+## 6、子应用在沙箱环境中如何获取到外部真实window？
   目前有3种方式在子应用中获取外部真实window
   - 1、new Function("return window")() 或 Function("return window")()
   - 2、(0, eval)('window')
   - 3、window.rawWindow
 
-## 13、错误信息：xxx 未定义
+## 7、错误信息：xxx undefined
 
 **包括：**
 - `xxx is not defined`
@@ -154,41 +92,113 @@ microApp.start({
 })
 ```
 
-## 14、子应用加载sockjs-node失败
-  这个问题常见于create-react-app创建的子应用，推荐通过插件系统来解决。
-```js
-microApp.start({
-  plugins: {
-    modules: {
-      '子应用name': [{
-        loader(code) {
-          if (code.indexOf('sockjs-node') > -1) {
-            code = code.replace('window.location.port', '子应用端口').replace('window.location.hostname', '子应用host，如果和基座相同则不需要替换hostname')
-          }
-          return code
-        }
-      }],
+## 8、jsonp请求如何处理？
+  参考[ignore](/zh-cn/configure?id=ignore忽略元素)
+
+
+## 9、子应用通过a标签下载文件失败
+  **原因：**当跨域时(主应用和文件在不同域名下)，无法通过a标签的download属性实现下载。
+
+  **解决方式：**
+
+  **方式1：**转换为blob形式下载
+  ```html
+  <a href='xxx.png' download="filename.png" @click='downloadFile'>下载</a>
+  ```
+  ```js
+  // 通过blob下载文件
+  function downloadFile (e) {
+    // 微前端环境下转换为blob下载，子应用单独运行时依然使用a标签下载
+    if (window.__MICRO_APP_ENVIRONMENT__) {
+      e.preventDefault()
+      // 注意href必须是绝对地址
+      fetch(e.target.href).then((res) => {
+        res.blob().then((blob) => {
+          const blobUrl = window.URL.createObjectURL(blob)
+          // 转化为blobURL后再通过a标签下载
+          const a = document.createElement('a')
+          a.href = blobUrl
+          a.download = 'filename.png'
+          a.click()
+          window.URL.revokeObjectURL(blobUrl)
+        })
+      })
     }
   }
-})
+  ```
+
+  **方式2：**将文件放到主应用域名下，判断微前端环境下a标签href属性设置为主应用的文件地址
+
+## 10、iconfont 图标冲突了如何处理？
+
+| 产生原因                                        | 解决方案                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| 主应用和子应用 unicode 使用同一编码导致图标冲突 | 选择冲突图标，在iconfont中修改对应的unicode编码并重新生成文件进行替换 |
+| 主应用和子应用 class/fontFamily 冲突            | 修改冲突应用下使用iconfont的的相关类名和对应的font-face下fontFamily |
+
+**主应用和子应用 class/fontFamily 冲突 解决示例**
+
+```css
+@font-face {
+-  font-family: "iconfont";
++  font-family: "iconfont1";
+   src: url('iconfont.woff2?t=1704871404008') format('woff2'),
+       url('iconfont.woff?t=1704871404008') format('woff'),
+       url('iconfont.ttf?t=1704871404008') format('truetype');
+}
+
+-.iconfont {
++.iconfont1 {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.right:before {
+  content: "\e7eb";
+}
 ```
-实际情况可能更加复杂，上面只是一种解决思路。
 
+```html
+- <i className="iconfont right"></i>
++ <i className="iconfont1 right"></i>
+```
 
-## 15、子应用请求接口报错
-  - 1、请确保接口请求没有跨域问题，因为子应用被加载到基座渲染，所以请求接口时origin为基座应用的域名。
+## 11、Vue主应用接入微前端时循环刷新（页面闪烁）
 
-  - 2、请求的接口为相对地址，会以基座域名进行补全，导致报错。
-    
-    如：`fetch('/api/data')`，在请求时会自动被浏览器补全为`fetch('基座域名/api/data')`
+**解决方式：**将主应用router-view或者包含微前端的上层组件中`:key="route.fullPath"`改为`:key="route.path"`或者`:key="route.name"`
 
-    为了避免这个问题，子应用需要使用完整的地址：`fetch('子应用域名/api/data')`
+**例如：**
 
-## 15、子应用多次渲染后内存越来越大
-  参考[内存优化](/zh-cn/advanced?id=_3、内存优化)一章
+```html
+<!-- bad 😭 -->
+<router-view v-slot="{ Component, route }">
+  <transition name="fade">
+    <component :is="Component" :key="route.fullPath" />
+  </transition>
+</router-view>
 
-## 16、子应用之间如何跳转
-  参考[应用之间如何跳转](/zh-cn/route?id=应用之间如何跳转)一章
+<!-- good 😊 -->
+<router-view v-slot="{ Component, route }">
+  <transition name="fade">
+    <component :is="Component" :key="route.path" />
+  </transition>
+</router-view>
+```
 
-## 17、jsonp请求如何处理？
- 参考[ignore](/zh-cn/configure?id=ignore忽略元素)
+```html
+<!-- bad 😭 -->
+<router-view :key="$route.fullPath"></router-view>
+
+<!-- good 😊 -->
+<router-view :key="$route.path"></router-view>
+```
+
+## 12、iframe沙箱加载了主应用的资源
+
+**解决方式：**如果主应用不会作为iframe嵌入，可以在主应用head最前面插入下面js
+```html
+<script>if(window.parent !== window) {window.stop()}</script>
+```

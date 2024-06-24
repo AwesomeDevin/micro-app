@@ -1,6 +1,5 @@
 /* eslint-disable promise/param-names */
 import { commonStartEffect, releaseAllEffect, ports } from '../common/initial'
-import { appInstanceMap } from '../../create_app'
 import microApp from '../..'
 import Sandbox from '../../sandbox'
 
@@ -21,10 +20,10 @@ declare global {
 }
 
 describe('sandbox', () => {
-  let appCon: Element
+  // let appCon: Element
   beforeAll(() => {
     commonStartEffect(ports.sandbox)
-    appCon = document.querySelector('#app-container')!
+    // appCon = document.querySelector('#app-container')!
 
     microApp.start({
       plugins: {
@@ -70,28 +69,9 @@ describe('sandbox', () => {
     return releaseAllEffect()
   })
 
-  // 测试 macro 配置
-  test('scoped element with macro', async () => {
-    const microappElement1 = document.createElement('micro-app')
-    microappElement1.setAttribute('name', 'test-app1')
-    microappElement1.setAttribute('url', `http://127.0.0.1:${ports.sandbox}/common/`)
-    microappElement1.setAttribute('macro', 'true')
-
-    appCon.appendChild(microappElement1)
-
-    await new Promise((reslove) => {
-      microappElement1.addEventListener('mounted', () => {
-        setTimeout(() => {
-          expect(appInstanceMap.size).toBe(1)
-          reslove(true)
-        }, 100)
-      }, false)
-    })
-  })
-
-  // 一些需要返回 proxywindow 的变量
+  // 一些需要返回 proxyWindow 的变量
   test('which keys should return proxyWindow in sandbox', () => {
-    const proxyWindow = new Sandbox('test-app2', `http://127.0.0.1:${ports.sandbox}/common/`, false).proxyWindow
+    const proxyWindow = new Sandbox('test-app2', `http://127.0.0.1:${ports.sandbox}/common/`, true).proxyWindow
     expect(proxyWindow.window).toBe(proxyWindow)
     expect(proxyWindow.self).toBe(proxyWindow)
     // @ts-ignore
@@ -110,16 +90,16 @@ describe('sandbox', () => {
         value: 2,
       }
     })
-    const proxyWindow = new Sandbox('test-app3', `http://127.0.0.1:${ports.sandbox}/common/`, false).proxyWindow
+    const proxyWindow = new Sandbox('test-app3', `http://127.0.0.1:${ports.sandbox}/common/`, true).proxyWindow
     expect(proxyWindow.top).toBe(1)
     expect(proxyWindow.parent).toBe(2)
   })
 
   // 测试强隔离属性
   test('scopeProperties should prevent key in rawWidow', () => {
-    const sandbox = new Sandbox('test-app-scopeProperties', `http://127.0.0.1:${ports.sandbox}/common/`, false)
+    const sandbox = new Sandbox('test-app-scopeProperties', `http://127.0.0.1:${ports.sandbox}/common/`, true)
 
-    sandbox.start('')
+    sandbox.start()
 
     const proxyWindow: any = sandbox.proxyWindow
 
@@ -145,6 +125,13 @@ describe('sandbox', () => {
       }
     })
 
+    Object.defineProperty(window, 'qqqqqqqqqq', {
+      value: 11,
+      configurable: false,
+      enumerable: true,
+      writable: true,
+    })
+
     // proxyWindow 无法继承原window上被隔离的变量
     expect(proxyWindow.scopeProperty1).toBeUndefined()
     expect(proxyWindow.scopeProperty2).toBeUndefined()
@@ -156,15 +143,16 @@ describe('sandbox', () => {
     const proxyScopedPro1Desc = Object.getOwnPropertyDescriptor(proxyWindow, 'scopeProperty1')
     expect(proxyScopedPro1Desc?.configurable).toBeTruthy()
 
-    proxyWindow.notScopedProperty = 'not-ScopedProperty'
+    proxyWindow.notScopedProperty = 'not-ScopedProperty-value'
+    proxyWindow.qqqqqqqqqq = 11
     const proxyNotScopedProDesc = Object.getOwnPropertyDescriptor(proxyWindow, 'notScopedProperty')
     expect(proxyNotScopedProDesc?.configurable).toBeFalsy()
   })
 
   // 逃离属性可以逃逸到外层真实window上&卸载时清空escapeKeys
-  test('escapeProperties should escape from microWindow to rawWindow', () => {
-    const sandbox = new Sandbox('test-app-escapeProperties', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+  test('escapeProperties should escape from microAppWindow to rawWindow', () => {
+    const sandbox = new Sandbox('test-app-escapeProperties', `http://127.0.0.1:${ports.sandbox}/common/`, true)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
 
     Object.defineProperties(window, {
@@ -197,7 +185,7 @@ describe('sandbox', () => {
     expect(sandbox.escapeKeys.size).toBe(3)
     // @ts-ignore
     expect(sandbox.active).toBeTruthy()
-    sandbox.stop()
+    sandbox.stop(false, false, true)
     // @ts-ignore
     expect(sandbox.escapeKeys.size).toBe(0)
     // @ts-ignore
@@ -209,19 +197,19 @@ describe('sandbox', () => {
 
   // escapeSetterKeyList 只能赋值给原生window
   test('escapeSetterKeyList should only acts on rawWindow', () => {
-    const sandbox = new Sandbox('test-app-escapeSetterKeyList', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-escapeSetterKeyList', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
 
     proxyWindow.location = 'https://www.micro-app-test.com'
 
-    expect(sandbox.microWindow.location).toBeUndefined()
+    expect(sandbox.microAppWindow.location).toBeUndefined()
   })
 
   // has方法从proxyWindow和rawWindow上同时判断
   test('proxyWindow combine with rawWindow in has', () => {
-    const sandbox = new Sandbox('test-app-has', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-has', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
     proxyWindow.inlineKey = 'inline-key-value'
 
@@ -233,8 +221,8 @@ describe('sandbox', () => {
 
   // getOwnPropertyDescriptor 和 defineProperty
   test('getOwnPropertyDescriptor and defineProperty', () => {
-    const sandbox = new Sandbox('test-app-defineProperty', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-defineProperty', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
     proxyWindow.key1 = 'value1'
 
@@ -248,6 +236,7 @@ describe('sandbox', () => {
         value: 'value3',
         configurable: true,
         writable: true,
+        enumerable: true,
       },
     })
 
@@ -279,8 +268,8 @@ describe('sandbox', () => {
 
   // ownKeys从proxyWindow和rawWindow获取所有到key
   test('ownKeys should get keys from proxyWindow & rawWindow', () => {
-    const sandbox = new Sandbox('test-app-ownKeys', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-ownKeys', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
     proxyWindow.ownKey1 = 'ownKey1-value'
 
@@ -291,8 +280,8 @@ describe('sandbox', () => {
 
   // 删除属性
   test('deleteProperty from proxyWindow', () => {
-    const sandbox = new Sandbox('test-app-deleteProperty', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-deleteProperty', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
     proxyWindow.deleteProperty1 = 'deleteProperty1-value'
     proxyWindow.escapeProperty1 = 'escapeProperty1-value'
@@ -309,8 +298,8 @@ describe('sandbox', () => {
 
   // proxyWindow的hasOwnProperty是特殊处理的
   test('hasOwnProperty is customized for proxyWindow', () => {
-    const sandbox = new Sandbox('test-app-hasOwnProperty', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-hasOwnProperty', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
     proxyWindow.hasOwnProperty1 = 'hasOwnProperty1-value'
 
@@ -321,26 +310,26 @@ describe('sandbox', () => {
 
   // active标记沙箱是否处于开启状态，并对一些场景进行拦截
   test('active is switch for sandbox', () => {
-    const sandbox = new Sandbox('test-app-active', `http://127.0.0.1:${ports.sandbox}/common/`, false)
+    const sandbox = new Sandbox('test-app-active', `http://127.0.0.1:${ports.sandbox}/common/`)
     const proxyWindow: any = sandbox.proxyWindow
 
     proxyWindow.notExecute = 'notExecute-value'
     expect(proxyWindow.notExecute).toBeUndefined()
 
-    sandbox.start('')
-    sandbox.start('') // 多次执行start无效
+    sandbox.start()
+    sandbox.start() // 多次执行start无效
 
     proxyWindow.notExecute = 'notExecute-value'
     expect(proxyWindow.notExecute).toBe('notExecute-value')
 
-    sandbox.stop()
-    sandbox.stop() // 多次执行start无效
+    sandbox.stop(false, false, true)
+    sandbox.stop(false, false, true) // 多次执行start无效
   })
 
   // proxyWindow没有此变量而rawWindow有，则优先使用rawWindow的descriptor
   test('priority of use descriptor from rawWindow', () => {
-    const sandbox = new Sandbox('test-app-descriptor', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-app-descriptor', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
 
     Object.defineProperties(window, {
@@ -362,30 +351,73 @@ describe('sandbox', () => {
     proxyWindow['descriptor-key2'] = 'new-descriptor-key2'
 
     expect(proxyWindow['descriptor-key1']).toBe('new-descriptor-key1')
-    // writable为false，赋值无效
-    expect(proxyWindow['descriptor-key2']).toBe('descriptor-key2')
+    // 原生window有相同值，且writable为false，value依然可以定义到proxyWindow上
+    expect(proxyWindow['descriptor-key2']).toBe('new-descriptor-key2')
   })
 
   // 将原window上的_babelPolyfill设置为false
   test('_babelPolyfill should be false', () => {
-    const sandbox = new Sandbox('test-app-_babelPolyfill', `http://127.0.0.1:${ports.sandbox}/common/`, false)
+    const sandbox = new Sandbox('test-app-_babelPolyfill', `http://127.0.0.1:${ports.sandbox}/common/`)
     window._babelPolyfill = true
-    sandbox.start('')
+    sandbox.start()
 
     expect(window._babelPolyfill).toBeFalsy()
   })
 
   // 测试bind_function中的isBoundedFunction方法
   test('test bind_function of isBoundedFunction', () => {
-    const sandbox = new Sandbox('test-isBoundedFunction', `http://127.0.0.1:${ports.sandbox}/common/`, false)
-    sandbox.start('')
+    const sandbox = new Sandbox('test-isBoundedFunction', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
     const proxyWindow: any = sandbox.proxyWindow
 
-    function willbind () {}
-    const boundFunction = willbind.bind(window)
+    function willBind () {}
+    const boundFunction = willBind.bind(window)
     window.boundFunction = boundFunction
 
-    expect(proxyWindow.boundFunction.name).toBe('bound willbind')
+    expect(proxyWindow.boundFunction.name).toBe('bound willBind')
     expect(proxyWindow.boundFunction).toBe(boundFunction)
+  })
+
+  // 测试重写eval、Image方法
+  test('test set eval & Image', () => {
+    const sandbox = new Sandbox('test-set-eval&Image', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
+    const proxyWindow: any = sandbox.proxyWindow
+
+    proxyWindow.eval = 'new-eval'
+    expect(proxyWindow.eval).toBe('new-eval')
+
+    proxyWindow.Image = 'new-image'
+    expect(proxyWindow.Image).toBe('new-image')
+  })
+
+  // 分支覆盖 proxyWindow getter方法
+  test('coverage: proxyWindow getter', () => {
+    const sandbox = new Sandbox('test-coverage-proxy-getter', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
+    const proxyWindow: any = sandbox.proxyWindow
+
+    Object.defineProperties(window, {
+      'key1-for-proxy-getter': {
+        get () {
+          return 'key1-proxy-getter-value'
+        },
+        set () {},
+        configurable: true,
+        enumerable: true,
+      },
+    })
+
+    proxyWindow['key1-for-proxy-getter'] = 'set value to proxyWindow'
+    expect(Object.getOwnPropertyDescriptor(proxyWindow, 'key1-for-proxy-getter')?.writable).toBeTruthy()
+  })
+
+  // 分支覆盖: 在createDescriptorForMicroAppWindow 获取descriptor为空
+  test('coverage: empty descriptor in createDescriptorForMicroAppWindow ', () => {
+    // @ts-ignore
+    delete window.parent
+    const sandbox = new Sandbox('empty-descriptor-createDescriptorForMicroAppWindow', `http://127.0.0.1:${ports.sandbox}/common/`)
+    sandbox.start()
+    expect(Object.getOwnPropertyDescriptor(window, 'parent')).toBeUndefined()
   })
 })

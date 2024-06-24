@@ -5,6 +5,15 @@ const liveServer = require('../../../scripts/test_server')
 global.fetch = require('node-fetch')
 jest.useRealTimers()
 
+declare global {
+  interface Element {
+    ssrUrl: string
+  }
+  interface Window {
+    keepAliveListener: (...rest: any[]) => void
+  }
+}
+
 export const ports = {
   main: 9000,
   create_app: 9001,
@@ -21,6 +30,8 @@ export const ports = {
   source_scripts2: 9012,
   source_patch: 9013,
   prefetch: 9014,
+  micro_app: 9015,
+  custom_proxy_document: 9016,
 }
 
 // 启动服务
@@ -35,9 +46,19 @@ export function startServer (port?: number): void {
 // 重写console.warn和console.error
 const rawWarn = global.console.warn
 const rawError = global.console.error
+export const jestConsoleWarn = jest.fn()
+export const jestConsoleError = jest.fn()
 export function rewriteConsole (): void {
-  global.console.warn = jest.fn()
-  global.console.error = jest.fn()
+  global.console.warn = function warn(...rests: any[]) {
+    // rawWarn.call(global.console, ...rests)
+    jestConsoleWarn(...rests)
+  }
+  global.console.error = function error(...rests: any[]) {
+    // rawError.call(global.console, ...rests)
+    jestConsoleError(...rests)
+  }
+  // global.console.warn = jestConsoleWarn
+  // global.console.error = jestConsoleError
 }
 
 // 释放console
@@ -49,6 +70,7 @@ export function releaseConsole (): void {
 // 初始基座页面的内容
 export function initDocument (): void {
   const baseStyle = document.createElement('style')
+  baseStyle.id = 'base-app-style'
   baseStyle.textContent = `
     body {
       background: #fff;

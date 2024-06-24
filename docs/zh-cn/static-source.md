@@ -1,10 +1,10 @@
-## 资源地址自动补全
+## 资源路径自动补全
 
-是指对子应用相对路径的资源地址进行补全，以确保所有资源正常加载，它是`micro-app`默认提供的功能。
+是指对子应用相对地址的资源路径进行补全，以确保所有资源正常加载，它是`micro-app`默认提供的功能。
 
 如：子应用中引用图片`/myapp/test.png`，在最终渲染时会补全为`http://localhost:8080/myapp/test.png`
 
-资源地址补全分为两个方面：
+资源路径补全分为两个方面：
 
 **1、针对资源标签**
 
@@ -14,9 +14,9 @@
 
 如 `background-image、@font-face`
 
-<!-- 资源地址补全功能和沙箱、样式隔离绑定，当这两个功能被关闭时会受到影响。
+<!-- 资源路径补全功能和沙箱、样式隔离绑定，当这两个功能被关闭时会受到影响。
 
-当关闭样式隔离或沙箱时，所有资源地址补全功能都将失效。 -->
+当关闭样式隔离或沙箱时，所有资源路径补全功能都将失效。 -->
 
 自动补全有时会失效，因为一些框架和库在特定场景下创建的元素无法被拦截和处理，或者当关闭样式隔离和沙箱时，也会导致自动补全失效。
 
@@ -28,9 +28,11 @@
 
 这是由webpack提供的功能，会在运行时动态设置webpack.publicPath，详细配置参考webpack文档 [publicPath](https://webpack.docschina.org/guides/public-path/#on-the-fly)
 
+*如果你已经设置了publicPath为带域名的绝对地址(如：https://xxx)，则忽略此章节*
+
 #### 设置方式
 
-**步骤1:** 在`子应用`src目录下创建名称为`public-path.js`的文件，并添加如下内容
+**步骤1:** 在子应用src目录下创建名称为`public-path.js`的文件，并添加如下内容
 ```js
 // __MICRO_APP_ENVIRONMENT__和__MICRO_APP_PUBLIC_PATH__是由micro-app注入的全局变量
 if (window.__MICRO_APP_ENVIRONMENT__) {
@@ -39,11 +41,10 @@ if (window.__MICRO_APP_ENVIRONMENT__) {
 }
 ```
 
-**步骤2:** 在子应用的入口文件的`最顶部`引入`public-path.js`
+**步骤2:** 在子应用入口文件的**最顶部**引入`public-path.js`
 ```js
-// entry.js
+// entry
 import './public-path'
-...
 ```
 
 ## 资源共享
@@ -80,7 +81,25 @@ microApp.start({
 ```
 
 ## 资源过滤
-当子应用不需要加载某个js或css，可以通过在link、script、style设置exclude属性过滤这些资源，当micro-app遇到带有exclude属性的元素会进行删除。
+#### 方式一：excludeAssetFilter 
+在start中注册excludeAssetFilter过滤函数，可以指定部分特殊的动态加载的微应用资源（css/js) 不被 micro-app 劫持处理。
+
+```js
+// index.js
+import microApp from '@micro-zoe/micro-app'
+
+microApp.start({
+  excludeAssetFilter (assetUrl) {
+    if (assetUrl === 'xxx') {
+      return true // 返回true则micro-app不会劫持处理当前文件
+    }
+    return false
+  }
+})
+```
+
+#### 方式二：配置 exclude 属性
+在link、script、style等元素上设置exclude属性过滤这些资源，当micro-app遇到带有exclude属性的元素会进行删除。
 
 **使用方式**
 ```html
